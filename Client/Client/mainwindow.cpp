@@ -241,10 +241,10 @@ void MainWindow::loadFile(){
     ui->SERVERWRITE->setText("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|"+block);
     int tempBytes = 0;
     while(!file.atEnd()){
-    block = file.read((1024 - QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|").size()));
+    block = file.read((1024 - QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|").length()));
     qDebug() << "Bytes sended - " << tempBytes;
     qDebug() << block;
-    tempBytes += socket->write(QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|"+block).toUtf8());
+    tempBytes += socket->write(QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|"+block).toUtf8() , 1024);
     ui->LOADFILEPANEL->setText("Loading " + name + " " + QString::number(tempBytes) + "/" +
                                QString::number(file.size()));
     socket->waitForBytesWritten(10);
@@ -268,6 +268,7 @@ void MainWindow::disconnect(){
  * 02 - LOAD FILE
  * 03 - DOWNLOAD FILE
  * 04 - FIND FILE
+ * 05 - DELETE FILE
  * 97 - TEST3
  * 98 - TEST2
  * 99 - DISCONNECT
@@ -278,4 +279,8 @@ void MainWindow::on_test2_clicked()
 {
     QString data = "Oleg тут 123!@#(!*$)!(";
     socket->write(data.toUtf8());
+}
+
+void MainWindow::on_delete_file_button_clicked(){
+    socket->write(QString("04|SPLIT|" + ui->dirServer->text()).toUtf8());
 }

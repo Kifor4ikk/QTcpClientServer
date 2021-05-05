@@ -48,6 +48,8 @@ private slots:
     //TESTS
     void on_test2_clicked();
 
+    void on_delete_file_button_clicked();
+
 private:
     Ui::MainWindow *ui;
 };
