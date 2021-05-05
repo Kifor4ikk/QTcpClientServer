@@ -29,8 +29,23 @@ private slots:
 
     void on_disconnect_button_clicked();
 
-    void on_TestMessage_clicked();
+    void on_ip_line_textChanged(const QString &arg1);
 
+    void on_port_line_textChanged(const QString &arg1);
+
+    void on_download_file_button_clicked();
+
+    void on_load_file_button_clicked();
+
+    void on_loadDir_clicked();
+
+    //actions
+    void checkDir();
+    void loadFile();
+    void downloadFile();
+    void disconnect();
+
+    //TESTS
     void on_test2_clicked();
 
 private:

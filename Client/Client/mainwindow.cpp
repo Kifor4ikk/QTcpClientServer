@@ -2,6 +2,8 @@
 #include "ui_mainwindow.h"
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
+#include <QFile>
+#include <QString>
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -36,7 +38,11 @@ MainWindow::~MainWindow()
 }
 
 
-//check ip
+/**
+ * @brief IPChecker
+ * @param str
+ * @return
+ */
 bool IPChecker(QString str)
 {
     QRegularExpression ipFormat("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
@@ -49,7 +55,11 @@ bool IPChecker(QString str)
     return false;
 }
 
-//check port
+/**
+ * @brief PortChecker
+ * @param str
+ * @return
+ */
 bool PortChecker(QString str){
 
     int x = str.toInt();
@@ -62,7 +72,23 @@ bool PortChecker(QString str){
 
 }
 
-//Click connect button
+//CLEAR PORT AND IP WHEN TOO MUCH SYMBOLS
+void MainWindow::on_ip_line_textChanged(const QString &arg1){
+    qDebug() << arg1.length();
+    if(arg1.length() > 18){
+        ui->ip_line->setText("");
+    }
+}
+void MainWindow::on_port_line_textChanged(const QString &arg1){
+    qDebug() << arg1.length();
+    if(arg1.length() > 6){
+        ui->ip_line->setText("");
+    }
+}
+
+/**
+ * @brief MainWindow::on_connect_button_clicked
+ */
 void MainWindow::on_connect_button_clicked() {
 
     QString IP = "127.0.0.1";
@@ -86,8 +112,8 @@ void MainWindow::on_connect_button_clicked() {
 
                 ui->statusBar->setText("Sucesful connect!");
 
-                qDebug() << "Sucesful connect - " << socket->isOpen();;
-
+                ui->download_file_button->setDisabled(false);
+                ui->load_file_button->setDisabled(false);
                 ui->disconnect_button->setDisabled(false);
                 qDebug() << "Sucesful connect!";
             } else{
@@ -99,48 +125,157 @@ void MainWindow::on_connect_button_clicked() {
             }
 
         }else{
+            ui->connect_button->setDisabled(false);
+            ui->ip_line->setDisabled(false);
+            ui->port_line->setDisabled(false);
             ui->statusBar->setText("Bad PORT");
             qDebug() << "Bad PORT";
         }
 
     }else{
 
+        ui->connect_button->setDisabled(false);
+        ui->ip_line->setDisabled(false);
+        ui->port_line->setDisabled(false);
+
         ui->statusBar->setText("Bad IP");
         qDebug() << "Bad IP";
     }
 }
 
-void MainWindow::socketDisconnect(){
-    this->socket->disconnect();
-    this->socket->close();
-}
-//
+/**
+ * @brief MainWindow::on_disconnect_button_clicked
+ */
 void MainWindow::on_disconnect_button_clicked(){
+//FRONT END
     ui->connect_button->setDisabled(false);
     ui->ip_line->setDisabled(false);
     ui->port_line->setDisabled(false);
     ui->disconnect_button->setDisabled(true);
-
-    this->socket->write(encrypt("disconnect"));
-    this->socketDisconnect();
-    ui->statusBar->setText("Disconnected...");
-    //this->socket->close();
-
+    ui->download_file_button->setDisabled(true);
+    ui->load_file_button->setDisabled(true);
+//BACK END
+    disconnect();
 }
 
-void MainWindow::on_TestMessage_clicked(){
-    this->socket->write(encrypt("Test message"));
-    qDebug() << "Send " << "test message";
+/**
+ * @brief MainWindow::socketDisconnect
+ */
+void MainWindow::socketDisconnect(){
+    this->socket->disconnect();
+    this->socket->close();
 }
 
-//READY
+/**
+ * @brief MainWindow::socketReady
+ */
 void MainWindow::socketReady(){
-    QByteArray data = socket->readAll();
-    data = decrypt(data);
+    //BACK
+    QByteArray data = (socket->readAll());
+    //FRONT
     ui->SERVERWRITE->setText(data);
     qDebug() << "Server write : " << data;
 }
 
-void MainWindow::on_test2_clicked() {
-    socket->write(encrypt("Do you hear me?"));
+
+
+
+//SEND DIR TO TAKE FILES AND PATCHES
+void MainWindow::on_loadDir_clicked(){
+    qDebug() << "LOAD DIR";
+    checkDir();
+}
+/**
+ * @brief MainWindow::on_load_file_button_clicked
+ */
+void MainWindow::on_load_file_button_clicked(){
+
+    ui->load_file_button->setDisabled(true);
+    ui->disconnect_button->setDisabled(true);
+    ui->dirLocal->setDisabled(true);
+    ui->dirServer->setDisabled(true);
+    ui->download_file_button->setDisabled(true);
+//--------------------------------------------------------------------//
+    loadFile();
+//--------------------------------------------------------------------//
+    ui->load_file_button->setDisabled(false);
+    ui->disconnect_button->setDisabled(false);
+    ui->dirLocal->setDisabled(false);
+    ui->dirServer->setDisabled(false);
+    ui->download_file_button->setDisabled(false);
+}
+
+void MainWindow::on_download_file_button_clicked() {
+
+    socket->write(("DOWNLOADFILE"));
+}
+
+void MainWindow::checkDir(){
+    QByteArray dir = ui->dirServer->text().toUtf8();
+    socket->write(("01|SPLIT|" + dir));
+}
+
+void MainWindow::loadFile(){
+
+    QString dir = QString(ui->dirServer->text());
+    QString name;
+    QString data;
+
+    for(int i = QString(ui->dirLocal->text()).length()-1; i > 0 ;i--){
+
+        if(QString(ui->dirLocal->text())[i] == '\\' || QString(ui->dirLocal->text())[i] == '\/'){
+            break;
+        }
+        name.push_front(QString(ui->dirLocal->text())[i]);
+    }
+
+    QFile file(ui->dirLocal->text());
+    if(!file.open(QIODevice::ReadOnly)){
+        return;
+    }
+
+    QString block;
+
+    qDebug() << block;
+    ui->LOADFILEPANEL->setText("Load - " + dir + "/" + name);
+    ui->SERVERWRITE->setText("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|"+block);
+    int tempBytes = 0;
+    while(!file.atEnd()){
+    block = file.read((1024 - QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|").size()));
+    qDebug() << "Bytes sended - " << tempBytes;
+    qDebug() << block;
+    tempBytes += socket->write(QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|"+block).toUtf8());
+    ui->LOADFILEPANEL->setText("Loading " + name + " " + QString::number(tempBytes) + "/" +
+                               QString::number(file.size()));
+    socket->waitForBytesWritten(10);
+    }
+    file.close();
+}
+
+void MainWindow::downloadFile(){
+
+}
+
+void MainWindow::disconnect(){
+    this->socket->write(("disconnect"));
+    this->socketDisconnect();
+    ui->statusBar->setText("Disconnected...");
+}
+
+//COMMAND LIST
+/*
+ * 01 - CHECK DIR
+ * 02 - LOAD FILE
+ * 03 - DOWNLOAD FILE
+ * 04 - FIND FILE
+ * 97 - TEST3
+ * 98 - TEST2
+ * 99 - DISCONNECT
+ */
+
+
+void MainWindow::on_test2_clicked()
+{
+    QString data = "Oleg тут 123!@#(!*$)!(";
+    socket->write(data.toUtf8());
 }
