@@ -229,6 +229,8 @@ void MainWindow::loadFile(){
         name.push_front(QString(ui->dirLocal->text())[i]);
     }
 
+
+
     QFile file(ui->dirLocal->text());
     if(!file.open(QIODevice::ReadOnly)){
         return;
@@ -238,7 +240,7 @@ void MainWindow::loadFile(){
 
     qDebug() << block;
     ui->LOADFILEPANEL->setText("Load - " + dir + "/" + name);
-    ui->SERVERWRITE->setText("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|"+block);
+
     int tempBytes = 0;
     while(!file.atEnd()){
     block = file.read((1024 - QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|").length()));
@@ -250,6 +252,10 @@ void MainWindow::loadFile(){
     socket->waitForBytesWritten(10);
     }
     file.close();
+}
+
+void MainWindow::on_delete_file_button_clicked(){
+    socket->write(QString("04|SPLIT|" + ui->dirServer->text()).toUtf8());
 }
 
 void MainWindow::downloadFile(){
@@ -269,18 +275,15 @@ void MainWindow::disconnect(){
  * 03 - DOWNLOAD FILE
  * 04 - FIND FILE
  * 05 - DELETE FILE
- * 97 - TEST3
+ * 97 - TEST1
  * 98 - TEST2
  * 99 - DISCONNECT
  */
 
 
-void MainWindow::on_test2_clicked()
-{
-    QString data = "Oleg тут 123!@#(!*$)!(";
+void MainWindow::on_test2_clicked() {
+    QString data = "98|SPLIT|‘‘‘‘‘‘‘‘‘)*@@*(%&@#%!($*!@$!($ ОЛЕГ ВАЛЕНТИНОВИЧ";
     socket->write(data.toUtf8());
 }
 
-void MainWindow::on_delete_file_button_clicked(){
-    socket->write(QString("04|SPLIT|" + ui->dirServer->text()).toUtf8());
-}
+
