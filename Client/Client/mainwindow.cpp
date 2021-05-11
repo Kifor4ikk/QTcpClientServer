@@ -4,6 +4,7 @@
 #include <QRegularExpressionMatch>
 #include <QFile>
 #include <QString>
+#include <QFileDevice>
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -72,6 +73,35 @@ bool PortChecker(QString str){
 
 }
 
+QString MainWindow::getDataFromFile(QString path){
+
+    QFile file(path);
+    if(!file.exists()){
+        qDebug() << "File do not exist";
+        ui->SERVERWRITE->setText("File do not exitst");
+        return "";
+    }
+    if(!file.open(QIODevice::ReadOnly)){
+        qDebug() << "File closed";
+        ui->SERVERWRITE->setText("File closed");
+        return "";
+    }
+    return QString(file.readAll());
+}
+
+void MainWindow::writeDataToFile(QString path,QString data){
+
+    QFile file(path);
+    if(file.exists()){
+        qDebug() << "File already exist";
+        ui->SERVERWRITE->setText("File already exist");
+        return;
+    }
+    if(file.open(QIODevice::WriteOnly)){
+        file.write(data.toUtf8());
+    }
+}
+
 //CLEAR PORT AND IP WHEN TOO MUCH SYMBOLS
 void MainWindow::on_ip_line_textChanged(const QString &arg1){
     qDebug() << arg1.length();
@@ -86,9 +116,9 @@ void MainWindow::on_port_line_textChanged(const QString &arg1){
     }
 }
 
-/**
- * @brief MainWindow::on_connect_button_clicked
- */
+//Connect button
+//Here checked valid IP PORT
+//And try to connect to server
 void MainWindow::on_connect_button_clicked() {
 
     QString IP = "127.0.0.1";
@@ -143,9 +173,7 @@ void MainWindow::on_connect_button_clicked() {
     }
 }
 
-/**
- * @brief MainWindow::on_disconnect_button_clicked
- */
+//Here socket disconnected from server if connected
 void MainWindow::on_disconnect_button_clicked(){
 //FRONT END
     ui->connect_button->setDisabled(false);
@@ -158,36 +186,39 @@ void MainWindow::on_disconnect_button_clicked(){
     disconnect();
 }
 
-/**
- * @brief MainWindow::socketDisconnect
- */
+//nothing
 void MainWindow::socketDisconnect(){
     this->socket->disconnect();
     this->socket->close();
 }
 
-/**
- * @brief MainWindow::socketReady
- */
+//READ ALL INCOMMING MESSAGE
 void MainWindow::socketReady(){
     //BACK
     QByteArray data = (socket->readAll());
-    //FRONT
-    ui->SERVERWRITE->setText(data);
+    //FRONT     
     qDebug() << "Server write : " << data;
+    ui->SERVERWRITE->setText("");
+
+
 }
 
 
+void MainWindow::on_download_file_button_clicked() {
 
+}
 
 //SEND DIR TO TAKE FILES AND PATCHES
 void MainWindow::on_loadDir_clicked(){
     qDebug() << "LOAD DIR";
     checkDir();
 }
-/**
- * @brief MainWindow::on_load_file_button_clicked
- */
+//check DIR
+void MainWindow::checkDir(){
+    QByteArray dir = ui->dirServer->text().toUtf8();
+    socket->write(("01|SPLIT|" + dir));
+}
+//Button click load file
 void MainWindow::on_load_file_button_clicked(){
 
     ui->load_file_button->setDisabled(true);
@@ -196,7 +227,8 @@ void MainWindow::on_load_file_button_clicked(){
     ui->dirServer->setDisabled(true);
     ui->download_file_button->setDisabled(true);
 //--------------------------------------------------------------------//
-    loadFile();
+    //loadFile();
+    sendFile();
 //--------------------------------------------------------------------//
     ui->load_file_button->setDisabled(false);
     ui->disconnect_button->setDisabled(false);
@@ -205,15 +237,7 @@ void MainWindow::on_load_file_button_clicked(){
     ui->download_file_button->setDisabled(false);
 }
 
-void MainWindow::on_download_file_button_clicked() {
 
-    socket->write(("DOWNLOADFILE"));
-}
-
-void MainWindow::checkDir(){
-    QByteArray dir = ui->dirServer->text().toUtf8();
-    socket->write(("01|SPLIT|" + dir));
-}
 
 void MainWindow::loadFile(){
 
@@ -228,8 +252,6 @@ void MainWindow::loadFile(){
         }
         name.push_front(QString(ui->dirLocal->text())[i]);
     }
-
-
 
     QFile file(ui->dirLocal->text());
     if(!file.open(QIODevice::ReadOnly)){
@@ -247,11 +269,59 @@ void MainWindow::loadFile(){
     qDebug() << "Bytes sended - " << tempBytes;
     qDebug() << block;
     tempBytes += socket->write(QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|"+block).toUtf8() , 1024);
-    ui->LOADFILEPANEL->setText("Loading " + name + " " + QString::number(tempBytes) + "/" +
-                               QString::number(file.size()));
+    ui->LOADFILEPANEL->setText("Loading " + name + " " + QString::number(tempBytes) + "/" + QString::number(file.size()));
     socket->waitForBytesWritten(10);
     }
     file.close();
+}
+
+void MainWindow::sendFile(){
+    QString dir = QString(ui->dirServer->text());
+    QString name;
+    QString data;
+
+    //GetName
+    for(int i = QString(ui->dirLocal->text()).length()-1; i > 0 ;i--){
+        if(QString(ui->dirLocal->text())[i] == '\\' || QString(ui->dirLocal->text())[i] == '\/'){
+            break;
+        }
+        name.push_front(QString(ui->dirLocal->text())[i]);
+    }
+
+
+    setlocale(LC_ALL, "Russian");
+    //Check file
+    QFile file(ui->dirLocal->text());
+    if(!file.open(QIODevice::ReadOnly)){
+        return;
+    }
+    ui->LOADFILEPANEL->setText("Load - " + dir + "/" + name);
+    //Transfering file!
+    QString block;
+    long tempBytes = 0;
+
+    while(!file.atEnd()){
+
+        if(tempBytes + 512 > file.size()){
+
+            block = (file.read(file.size() - tempBytes));
+            tempBytes += file.size() - tempBytes;
+
+        } else{
+
+            block = (file.read(512));
+            tempBytes += 512;
+        }
+
+        socket->write(QString("02|SPLIT|"+dir+name+"|SPLIT|"+block).toUtf8());
+        qDebug() << "Bytes sended - " << tempBytes;
+       //qDebug() << block;
+        ui->LOADFILEPANEL->setText("Loading " + name + " " + QString::number(tempBytes) + "/" + QString::number(file.size()));
+        socket->waitForBytesWritten(10);
+    }
+    file.close();
+
+
 }
 
 void MainWindow::on_delete_file_button_clicked(){
@@ -282,8 +352,22 @@ void MainWindow::disconnect(){
 
 
 void MainWindow::on_test2_clicked() {
+    /*
     QString data = "98|SPLIT|‘‘‘‘‘‘‘‘‘)*@@*(%&@#%!($*!@$!($ ОЛЕГ ВАЛЕНТИНОВИЧ";
     socket->write(data.toUtf8());
+    */
+    QFile in(ui->dirLocal->text());
+    in.open(QIODevice::ReadOnly);
+    QDataStream file(&in);
+    char * test;
+    uint length = 64;
+    file.readBytes(test, length);
+
+    QFile file2("C:/Users/Кифор/Desktop/folder/123.txt");
+    file2.open(QIODevice::WriteOnly);
+    QDataStream file3(&file2);
+    file3.writeBytes(test , length);
+
 }
 
 

@@ -25,6 +25,7 @@ public slots:
 
 private slots:
 
+    //Buttons
     void on_connect_button_clicked();
 
     void on_disconnect_button_clicked();
@@ -39,9 +40,18 @@ private slots:
 
     void on_loadDir_clicked();
 
+
+
+    //
+    QString getDataFromFile(QString path);
+    void writeDataToFile(QString path , QString data);
+
     //actions
     void checkDir();
+    //
     void loadFile();
+    void sendFile();
+    //
     void downloadFile();
     void disconnect();
 
