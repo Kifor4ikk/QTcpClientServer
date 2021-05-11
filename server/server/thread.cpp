@@ -1,6 +1,36 @@
 #include "thread.h"
 #include <QDir>
 
+
+QString Thread::getDataFromFile(QString path){
+
+    QFile file(path);
+    if(!file.exists()){
+        qDebug() << "File do not exist";
+        socket->write("File do not exist");
+        return "";
+    }
+    if(!file.open(QIODevice::ReadOnly)){
+        qDebug() << "File closed";
+        return "";
+    }
+    return QString(file.readAll());
+}
+
+void Thread::writeDataToFile(QString path,QString data){
+
+    QFile file(path);
+    if(file.exists()){
+        qDebug() << "File already exist";
+        socket->write("File already exist");
+        return;
+    }
+    if(file.open(QIODevice::WriteOnly)){
+        file.write(data.toUtf8());
+    }
+}
+
+
 Thread::Thread(int ID ,QObject *parent):
     QThread(parent) {
     this->socketDescriptor = ID;
@@ -50,28 +80,27 @@ void saveDataToFile(QString file, QByteArray data){
 
 void Thread::readyRead(){
 
-    QByteArray data = socket->readAll();
-  //socket->write(("DIR;")+ui->dirServer->text().toUtf8()+";"+name.toUtf8());
+    QByteArray data = QByteArray(socket->readAll());
+    //socket->write(("DIR;")+ui->dirServer->text().toUtf8()+";"+name.toUtf8());
 
     QString cmd = QString::fromUtf8(data.data(), data.length());
-    qDebug() << data;
     QStringList command = cmd.split("|SPLIT|");
-    for(int i = 0; i < command.length();i++){
 
-        if(command[i].length() > 100){
-             qDebug() << i << "# Big String";
-        }else{
-             qDebug() << i << "# " << command[i];
+    for(int i = 0; i < command.size(); i++){
+
+        if(command[i].length() > 50){
+            qDebug() << i << "# big data";
+        } else{
+            qDebug() << i << "# " + command[i];
         }
-
     }
-
     //COMMAND LIST
     /*
      * 01 - CHECK DIR
      * 02 - LOAD FILE
      * 03 - DOWNLOAD FILE
-     * 97 - TEST3
+     * 04 - DELETE FILE
+     * 97 - TEST1
      * 98 - TEST2
      * 99 - DISCONNECT
      */
@@ -81,25 +110,47 @@ void Thread::readyRead(){
     }
     if(command[0] == "02"){
         QString temp;
-        for(int i = 3; i < command.length();i++){
-            temp += command[i];
+        for(int i = 0; i < command.length();i++){
+
+            if(command[i] == command[0] || command[i] == command[1] || command[i] == command[2]){
+
+            }
+            else{
+                temp += command[i];
+            }
         }
-        loadFileToServer(command[1]+command[2], temp);
-        temp = 0;
+        loadFileToServer(command[1], temp.toUtf8() );
+        temp.clear();
     }
     if(command[0] == "03"){
 
+    }
+    if(command[0] == "04"){
+        deleteFile(command[1]);
     }
     if(command[0] == "97"){
         test1();
     }
     if(command[0] == "98"){
-        test2();
+        test2(command[1]);
     }
     if(command[0] == "99"){
         disconnected();
     }
 //---------------------//
+
+}
+
+void Thread::deleteFile(QString fileName){
+     QFile file(fileName);
+
+     if(file.exists() && file.open(QIODevice::ReadWrite)){
+        file.remove();
+        socket->write(QString("File " + fileName + " succesfully deleted").toUtf8());
+     }
+     else{
+        socket->write(QString("File " + fileName + " not exist").toUtf8());
+     }
 
 }
 
@@ -119,18 +170,17 @@ void Thread::checkDir(QString dataInfo){
 
 void Thread::loadFileToServer(QString fileName , QString data){
     qDebug() << socketDescriptor << " transfering data";
-    QFile file(fileName);
-
-    if(file.open(QIODevice::Append | QIODevice::WriteOnly)){
-        file.write(data.toUtf8());
-        qDebug() << data.toUtf8();
-        file.close();
+    QFile file2(fileName);
+    QTextStream file(&file2);
+    if(file2.open(QIODevice::Append | QIODevice::WriteOnly)){
+        file2.write(data.toUtf8());
+        //qDebug() << data.toUtf8();
+        file2.close();
         socket->write(("Successfuly loaded - " + fileName.toUtf8()));
     }else{
         socket->write("Something go wrong");
         return;
     }
-
 }
 
 
@@ -156,7 +206,7 @@ void Thread::test1(){
 
 }
 
-void Thread::test2(){
-        socket->write(("Test2 \njopa"));
+void Thread::test2(QString data){
+        socket->write(data.toUtf8());
 }
 //WORK WITH FILE

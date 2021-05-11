@@ -22,9 +22,13 @@ public slots:
 
     void checkDir(QString msg);
     void loadFileToServer(QString fileName , QString data);
+    void deleteFile(QString file);
 
     void test1();
-    void test2();
+    void test2(QString data);
+    QString getDataFromFile(QString path);
+    void writeDataToFile(QString path , QString data);
+
 private:
     QTcpSocket *socket;
     int socketDescriptor;
