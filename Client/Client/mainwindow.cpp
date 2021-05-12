@@ -5,6 +5,8 @@
 #include <QFile>
 #include <QString>
 #include <QFileDevice>
+#include <QThread>
+#include <thread>
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -198,7 +200,7 @@ void MainWindow::socketReady(){
     QByteArray data = (socket->readAll());
     //FRONT     
     qDebug() << "Server write : " << data;
-    ui->SERVERWRITE->setText("");
+    ui->SERVERWRITE->setText(data);
 
 
 }
@@ -216,7 +218,7 @@ void MainWindow::on_loadDir_clicked(){
 //check DIR
 void MainWindow::checkDir(){
     QByteArray dir = ui->dirServer->text().toUtf8();
-    socket->write(("01|SPLIT|" + dir));
+    socket->write(("01COMMAND|SPLIT|" + dir));
 }
 //Button click load file
 void MainWindow::on_load_file_button_clicked(){
@@ -228,6 +230,7 @@ void MainWindow::on_load_file_button_clicked(){
     ui->download_file_button->setDisabled(true);
 //--------------------------------------------------------------------//
     //loadFile();
+
     sendFile();
 //--------------------------------------------------------------------//
     ui->load_file_button->setDisabled(false);
@@ -265,17 +268,19 @@ void MainWindow::loadFile(){
 
     int tempBytes = 0;
     while(!file.atEnd()){
-    block = file.read((1024 - QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|").length()));
+    block = file.read((1024 - QString("02COMMAND|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|").length()));
     qDebug() << "Bytes sended - " << tempBytes;
     qDebug() << block;
-    tempBytes += socket->write(QString("02|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|"+block).toUtf8() , 1024);
+    tempBytes += socket->write(QString("02COMMAND|SPLIT|"+dir+"|SPLIT|"+name+"|SPLIT|"+block+"|SPLIT|").toUtf8() , 1024);
     ui->LOADFILEPANEL->setText("Loading " + name + " " + QString::number(tempBytes) + "/" + QString::number(file.size()));
     socket->waitForBytesWritten(10);
     }
     file.close();
 }
 
+
 void MainWindow::sendFile(){
+
     QString dir = QString(ui->dirServer->text());
     QString name;
     QString data;
@@ -288,44 +293,39 @@ void MainWindow::sendFile(){
         name.push_front(QString(ui->dirLocal->text())[i]);
     }
 
-
-    setlocale(LC_ALL, "Russian");
     //Check file
     QFile file(ui->dirLocal->text());
     if(!file.open(QIODevice::ReadOnly)){
         return;
     }
+
     ui->LOADFILEPANEL->setText("Load - " + dir + "/" + name);
     //Transfering file!
-    QString block;
+    QByteArray block;
     long tempBytes = 0;
-
+    QString message;
     while(!file.atEnd()){
-
-        if(tempBytes + 512 > file.size()){
+        if(tempBytes + 512 >= file.size()){
 
             block = (file.read(file.size() - tempBytes));
-            tempBytes += file.size() - tempBytes;
+            tempBytes += (file.size() - tempBytes);
 
         } else{
-
             block = (file.read(512));
             tempBytes += 512;
         }
-
-        socket->write(QString("02|SPLIT|"+dir+name+"|SPLIT|"+block).toUtf8());
+        message = QString::fromLocal8Bit(block);
+        socket->write(QString("02COMMAND|SPLIT|"+dir+name+"|SPLIT|"+message + "|SPLIT|").toUtf8());
         qDebug() << "Bytes sended - " << tempBytes;
        //qDebug() << block;
         ui->LOADFILEPANEL->setText("Loading " + name + " " + QString::number(tempBytes) + "/" + QString::number(file.size()));
-        socket->waitForBytesWritten(10);
+        socket->waitForBytesWritten(100);
     }
     file.close();
-
-
 }
 
 void MainWindow::on_delete_file_button_clicked(){
-    socket->write(QString("04|SPLIT|" + ui->dirServer->text()).toUtf8());
+    socket->write(QString("04COMMAND|SPLIT|" + ui->dirServer->text()).toUtf8());
 }
 
 void MainWindow::downloadFile(){

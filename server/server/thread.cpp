@@ -105,14 +105,14 @@ void Thread::readyRead(){
      * 99 - DISCONNECT
      */
 
-    if(command[0] == "01"){
+    if(command[0] == "01COMMAND"){
         checkDir(command[1]);
     }
-    if(command[0] == "02"){
+    if(command[0] == "02COMMAND"){
         QString temp;
         for(int i = 0; i < command.length();i++){
 
-            if(command[i] == command[0] || command[i] == command[1] || command[i] == command[2]){
+            if(command[i] == command[0] || command[i] == command[1]){
 
             }
             else{
@@ -122,19 +122,19 @@ void Thread::readyRead(){
         loadFileToServer(command[1], temp.toUtf8() );
         temp.clear();
     }
-    if(command[0] == "03"){
+    if(command[0] == "03COMMAND"){
 
     }
-    if(command[0] == "04"){
+    if(command[0] == "04COMMAND"){
         deleteFile(command[1]);
     }
-    if(command[0] == "97"){
+    if(command[0] == "97COMMAND"){
         test1();
     }
-    if(command[0] == "98"){
+    if(command[0] == "98COMMAND"){
         test2(command[1]);
     }
-    if(command[0] == "99"){
+    if(command[0] == "99COMMAND"){
         disconnected();
     }
 //---------------------//
@@ -173,7 +173,7 @@ void Thread::loadFileToServer(QString fileName , QString data){
     QFile file2(fileName);
     QTextStream file(&file2);
     if(file2.open(QIODevice::Append | QIODevice::WriteOnly)){
-        file2.write(data.toUtf8());
+        file2.write(data.toLocal8Bit());
         //qDebug() << data.toUtf8();
         file2.close();
         socket->write(("Successfuly loaded - " + fileName.toUtf8()));
