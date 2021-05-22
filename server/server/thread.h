@@ -21,12 +21,11 @@ public slots:
     void disconnected();
 
     void checkDir(QString msg);
-    void loadFileToServer(QString fileName , QString data);
+    void loadFileToServer(QString fileName , QByteArray data);
     void deleteFile(QString file);
-
+    void sendFileToClient(QString path , QString pathOnClient);
     void test1();
     void test2(QString data);
-    QString getDataFromFile(QString path);
     void writeDataToFile(QString path , QString data);
 
 private:

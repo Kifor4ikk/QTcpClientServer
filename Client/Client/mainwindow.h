@@ -41,15 +41,9 @@ private slots:
     void on_loadDir_clicked();
 
 
-
-    //
-    QString getDataFromFile(QString path);
-    void writeDataToFile(QString path , QString data);
-
     //actions
     void checkDir();
     //
-    void loadFile();
     void sendFile();
     //
     void downloadFile();
@@ -57,7 +51,7 @@ private slots:
 
     //TESTS
     void on_test2_clicked();
-
+    void loadFileToClient(QString fileName , QByteArray data);
     void on_delete_file_button_clicked();
 
 private:

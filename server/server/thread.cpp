@@ -1,21 +1,6 @@
 #include "thread.h"
 #include <QDir>
-
-
-QString Thread::getDataFromFile(QString path){
-
-    QFile file(path);
-    if(!file.exists()){
-        qDebug() << "File do not exist";
-        socket->write("File do not exist");
-        return "";
-    }
-    if(!file.open(QIODevice::ReadOnly)){
-        qDebug() << "File closed";
-        return "";
-    }
-    return QString(file.readAll());
-}
+#include <QFile>
 
 void Thread::writeDataToFile(QString path,QString data){
 
@@ -35,19 +20,6 @@ Thread::Thread(int ID ,QObject *parent):
     QThread(parent) {
     this->socketDescriptor = ID;
 }
-//зашифровать
-QByteArray encrypt (QByteArray msg) {
-    for(int i = 0; i < msg.size();i++)
-        msg[i] = msg[i]+14;
-    return msg;
-}
-//дешифровать
-QByteArray decrypt(QByteArray msg) {
-    for(int i = 0; i < msg.size();i++)
-        msg[i] = msg[i]-14;
-    return msg;
-}
-
 
 void Thread::start(){
 
@@ -69,15 +41,6 @@ void Thread::start(){
     exec();
 }
 
-
-void saveDataToFile(QString file, QByteArray data){
-    QFile temp(file);
-
-    temp.open(QFile::WriteOnly);
-    temp.write(data);
-    temp.close();
-}
-
 void Thread::readyRead(){
 
     QByteArray data = QByteArray(socket->readAll());
@@ -88,7 +51,7 @@ void Thread::readyRead(){
 
     for(int i = 0; i < command.size(); i++){
 
-        if(command[i].length() > 50){
+        if(command[i].length() > 100){
             qDebug() << i << "# big data";
         } else{
             qDebug() << i << "# " + command[i];
@@ -119,11 +82,11 @@ void Thread::readyRead(){
                 temp += command[i];
             }
         }
-        loadFileToServer(command[1], temp.toUtf8() );
+        loadFileToServer(command[1], temp.toUtf8());
         temp.clear();
     }
     if(command[0] == "03COMMAND"){
-
+        sendFileToClient(command[1],command[2]);
     }
     if(command[0] == "04COMMAND"){
         deleteFile(command[1]);
@@ -154,10 +117,52 @@ void Thread::deleteFile(QString fileName){
 
 }
 
+void Thread::sendFileToClient(QString path , QString pathOnClient){
+    QFile file(path);
+    QString name;
+    //GetName
+    for(int i = QString(path).length()-1; i > 0 ;i--){
+        if(QString(path)[i] == '\\' || QString(path)[i] == '\/'){
+            break;
+        }
+        name.push_front(QString(path)[i]);
+    }
+
+    if(!file.exists()){
+        socket->write("File do not exist");
+        return;
+    }
+    if(!file.open(QIODevice::ReadOnly)){
+        socket->write("Bad file");
+        return;
+    }
+    long tempBytes = 0;
+    int bytesToSend = 1024; // im not shure
+    QByteArray block;
+
+    while(!file.atEnd()){
+        if(tempBytes + bytesToSend >= file.size()){
+            block = (file.read(file.size() - tempBytes));
+            tempBytes += (file.size() - tempBytes);
+
+        } else{
+            block = (file.read(bytesToSend));
+            tempBytes += bytesToSend;
+        }
+        socket->write(("03COMMAND|SPLIT|"+ pathOnClient + name + "|SPLIT|" + block.toBase64() +"|SPLIT|").toUtf8());
+        socket->waitForReadyRead(10);
+        socket->write((name + " loaded " + QString::number(tempBytes) + " / " + QString::number(file.size())).toUtf8());
+        socket->waitForReadyRead(10);
+    }
+    file.close();
+    socket->write("File loaded...");
+}
+
 void Thread::checkDir(QString dataInfo){
         //CUT DIRECTORY FROM MESSAGE
         QByteArray data = dataInfo.toUtf8();
         qDebug() << "User: " << socketDescriptor << " open direction " << data;
+        QFile file(data);
         QDir directory(data);
         QString files;
         QStringList fileList = directory.entryList(QStringList(),QDir::AllEntries);
@@ -168,13 +173,13 @@ void Thread::checkDir(QString dataInfo){
         qDebug() << files;
 }
 
-void Thread::loadFileToServer(QString fileName , QString data){
+
+
+void Thread::loadFileToServer(QString fileName , QByteArray data){
     qDebug() << socketDescriptor << " transfering data";
     QFile file2(fileName);
-    QTextStream file(&file2);
     if(file2.open(QIODevice::Append | QIODevice::WriteOnly)){
-        file2.write(data.toLocal8Bit());
-        //qDebug() << data.toUtf8();
+        file2.write(QByteArray::fromBase64(data));
         file2.close();
         socket->write(("Successfuly loaded - " + fileName.toUtf8()));
     }else{
@@ -182,7 +187,6 @@ void Thread::loadFileToServer(QString fileName , QString data){
         return;
     }
 }
-
 
 void Thread::disconnected(){
     socket->write(("You was disconnected"));
